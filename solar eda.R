@@ -10,13 +10,14 @@ library(tidyverse)
 library(ggplot2)
 library(scales)
 library(usmap)
+library(sf)
 
 source <- read.csv('deepsolar_tract.csv')
 
 ###############################################################
 ########## FIRST STEP: SELECT INTERESTED VARIABLES ############
 ###############################################################
-# Note: dataset was aggregated by satellite images and ACS 2015 (5-Year Estimates)
+# Note: dataset was aggregated from satellite images and ACS 2015 (5-Year Estimates)
 # Collector: DeepSolar team from Stanford
 # Some similar but different terms:
 # + household vs housing unit: a household is a group of pp living in the same house -> human, housing unit is a physical house/apartment/studio...
@@ -49,8 +50,8 @@ df <- source %>%
     household_count, # total number of households
     housing_unit_count,# total number of housing units
     housing_unit_occupied_count,# total number of occupied housing units,ACS 2015
-    #housing_unit_median_value, # median housing unit value ($),ACS 2015
-    #housing_unit_median_gross_rent,# median housing unit gross rent ($)
+    housing_unit_median_value, # median housing unit value ($),ACS 2015
+    housing_unit_median_gross_rent,# median housing unit gross rent ($)
     
     population, # total population,ACS 2015 (5-Year Estimates)
     population_density, # population density (/mile^2)
@@ -104,18 +105,19 @@ state_level <- df %>%
   summarise(
     total_solar_count = sum(solar_system_count),
     total_solar_panel_area = sum(total_panel_area),
-    solar_panel_area_per_capita = mean(solar_panel_area_per_capita, na.rm = FALSE),
+    solar_panel_area_per_capita = mean(solar_panel_area_per_capita, na.rm = TRUE),
     solar_system_count_per_capita = sum(solar_system_count)/sum(population),
     solar_system_count_per_household = sum(solar_system_count)/sum(household_count),
     solar_system_count_per_housing_units = sum(solar_system_count)/sum(housing_unit_count)
   )
 
 # Write this dataframe to csv to export to tableau later
-write.csv(df, 'solar_selected_vars_by_state_level.csv')
+write.csv(state_level, 'solar_selected_vars_by_state_level.csv')
 
 # plot a simple US map
 
 # TODO for Asthetics: convert numbers from 600,000 to 600k, add numbers to some largest states
+# Get centroids
 plot_usmap(
   data = state_level,
   values = "total_solar_count",
