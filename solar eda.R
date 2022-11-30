@@ -21,6 +21,7 @@ df <- source %>%
     solar_panel_area_per_capita, # solar panel area per capita (m^2/capita)
     solar_panel_area_divided_by_area, # solar panel area divided by total area (m^2/mile^2)
     daily_solar_radiation, 
+    land_area, # total land area
     # Energy features:
     electricity_price_overall, # average overall electricity price (cents/kWh)
     electricity_consume_total, # average monthly total electricity consumption (kWh)
@@ -83,43 +84,74 @@ df <- source %>%
 # Check percentage of missing values
 colMeans(is.na(df))*100 # %
 
+# Mutate solar radiation level column
+df <- df %>%
+  mutate(solar_radiation_level = 
+           case_when(
+             daily_solar_radiation < 4.5 ~ '< 4.5 kWh/m2/day (Low)',
+             daily_solar_radiation <= 5 ~ '4.5-5.0 kWh/m2/day (Medium)',
+             daily_solar_radiation > 5 ~ '>5.0 kWh/m2/day (High)'
+           )
+         )
+
 ###############################################################
-############# SECOND STEP: SUMMARISE by STATE #################
+############# SECOND STEP: General Plots ##################
 ###############################################################
 
-#state_level <- df %>%
-#  group_by(state) %>%
-#  summarise(
-#    total_solar_count = sum(solar_system_count),
-#    total_solar_panel_area = sum(total_panel_area),
-#    solar_panel_area_per_capita = mean(solar_panel_area_per_capita, na.rm = TRUE),
-#   solar_system_count_per_capita = sum(solar_system_count)/sum(population),
-#    solar_system_count_per_household = sum(solar_system_count)/sum(household_count),
-#    solar_system_count_per_housing_units = sum(solar_system_count)/sum(housing_unit_count)
-#  )
+# This dataset is used for 2 us maps + 1 bar chart in Tableau
+# Select only variables used to plot 3 graphs in Tableau:
+# Map 1: comprehensive map for solar panel area divided by area
+# Map 2: map for radiation level
 
-# Write this dataframe to csv to export to tableau later
-#write.csv(state_level, 'solar_selected_vars_by_state_level.csv')
+solar_plot <- df %>%
+  select(fips, 
+         state, 
+         county, 
+         solar_panel_area_divided_by_area,
+         solar_radiation_level,
+         daily_solar_radiation,
+         solar_system_count_residential,
+         land_area,
+         total_panel_area)
 
-# plot a simple US map
+# group by county level, radiation
+radiation_plot <- solar_plot %>%
+  group_by(state, county) %>%
+  summarise(
+    daily_solar_radiation = mean(daily_solar_radiation, na.rm = TRUE),
+  ) %>%
+  mutate(solar_radiation_levels = 
+           case_when(
+             daily_solar_radiation < 4.5 ~ 'Low (< 4.5 kWh/m2/day)',
+             daily_solar_radiation <= 5 ~ 'Medium (4.5-5.0 kWh/m2/day)',
+             daily_solar_radiation > 5 ~ 'High (>5.0 kWh/m2/day)'
+           )
+  )
 
-# TODO for Asthetics: convert numbers from 600,000 to 600k, add numbers to some largest states
-# Get centroids
-#plot_usmap(
-#  data = state_level,
-#  values = "total_solar_count",
-# color = "navy") + 
-#  labs(
-#    title = "Number of Total Solar Systems by State",
-#    subtitle = "California leads in solar installments.") +
-#  scale_fill_continuous(
-#    low = "white",
-#    high = "navy",
-#    name = "Number of Total Solar Systems",
-#   label = scales::comma
-#  ) +
-#  theme(legend.position = "right")
+# group by state level, solar density
+solar_density <- solar_plot %>%
+  group_by(state) %>%
+  summarise(
+    solar_panel_area_divided_by_area = sum(total_panel_area, na.rm = TRUE)/sum(land_area, na.rm = TRUE)
+  )
 
+
+# Chart 3: Bar chart for tract count vs no. of residential solar systems
+bar_plot <- solar_plot %>%
+  mutate(number_of_residential_solar_systems = 
+           case_when(
+             solar_system_count_residential == 0 ~ '0',
+             solar_system_count_residential <= 9 ~ '1-9',
+             solar_system_count_residential <= 99 ~ '10-99',
+             solar_system_count_residential >= 100 ~ '>=100'
+           )
+         )
+bar_plot <- bar_plot %>% 
+  group_by(number_of_residential_solar_systems) %>%
+  summarise(
+    number_of_tracts = n()
+  )
+  
 ###################################################################################
 ############# THIRD STEP: EXPLORE ASSOCIATION between DEMOGRAPHIC and SOLAR #######
 #############  NOTE: CONSIDERING ONLY RESIDENTIAL SOLAR SYSTEMS ###################
@@ -209,7 +241,9 @@ ggplot(pop_plot, aes(x = population_density, y = no_solar_per_1000household)) +
 ###############################################################
 ############# FOURTH STEP: WRITE TO CSV FOR TABLEAU ###########
 ###############################################################
-#write.csv(df, 'solar_selected_vars.csv')
+write.csv(bar_plot, 'bar_plot.csv')
+write.csv(radiation_plot, 'radiation_plot.csv')
+write.csv(solar_density, 'solar_density.csv')
 write.csv(gini_plot, 'gini_plot.csv')
 write.csv(education_plot, 'education_plot.csv')
 write.csv(income_plot, 'income_plot.csv')
