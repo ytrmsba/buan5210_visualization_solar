@@ -111,6 +111,7 @@ solar_plot <- df %>%
          solar_radiation_level,
          daily_solar_radiation,
          solar_system_count_residential,
+         solar_system_count,
          land_area,
          total_panel_area)
 
@@ -129,7 +130,7 @@ radiation_plot <- solar_plot %>%
   )
 
 # group by state level, solar density
-solar_density <- solar_plot %>%
+solar_plot <- solar_plot %>%
   group_by(state) %>%
   summarise(
     solar_panel_area_divided_by_area = sum(total_panel_area, na.rm = TRUE)/sum(land_area, na.rm = TRUE)
@@ -151,7 +152,11 @@ bar_plot <- bar_plot %>%
   summarise(
     number_of_tracts = n()
   )
-  
+
+# Chart 4: Distribution of residential and industry
+bar_plot_residential_vs_industrial <- solar_plot %>%
+  mutate(solar_system_count_industry = solar_system_count - solar_system_count_residential)
+
 ###################################################################################
 ############# THIRD STEP: EXPLORE ASSOCIATION between DEMOGRAPHIC and SOLAR #######
 #############  NOTE: CONSIDERING ONLY RESIDENTIAL SOLAR SYSTEMS ###################
@@ -241,6 +246,7 @@ ggplot(pop_plot, aes(x = population_density, y = no_solar_per_1000household)) +
 ###############################################################
 ############# FOURTH STEP: WRITE TO CSV FOR TABLEAU ###########
 ###############################################################
+write.csv(solar_plot, 'solar_plot.csv')
 write.csv(bar_plot, 'bar_plot.csv')
 write.csv(radiation_plot, 'radiation_plot.csv')
 write.csv(solar_density, 'solar_density.csv')
